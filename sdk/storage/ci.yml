@@ -1,60 +1,90 @@
-# NOTE: Please refer to https://aka.ms/azsdk/engsys/ci-yaml before editing this file.
+resources:
+  repositories:
+    - repository: azure-sdk-build-tools
+      type: git
+      name: internal/azure-sdk-build-tools
+      ref: refs/tags/azure-sdk-build-tools_20230425.1
 
-trigger:
-  branches:
-    include:
-    - main
-    - hotfix/*
-    - release/*
-  paths:
-    include:
-    - sdk/storage/
-    exclude:
-    - sdk/storage/Azure.ResourceManager.Storage/
-
-pr:
-  branches:
-    include:
-    - main
-    - feature/*
-    - hotfix/*
-    - release/*
-  paths:
-    include:
-    - sdk/storage/
-    exclude:
-    - sdk/storage/Azure.ResourceManager.Storage/
-
-extends:
-  template: /eng/pipelines/templates/stages/archetype-sdk-client.yml
-  parameters:
-    ServiceDirectory: storage
-    BuildSnippets: false
-    ArtifactName: packages
-    Artifacts:
-    - name: Azure.Storage.Blobs
-      safeName: AzureStorageBlobs
-    - name: Azure.Storage.Blobs.Batch
-      safeName: AzureStorageBlobsBatch
-    - name: Azure.Storage.Common
-      safeName: AzureStorageCommon
-    - name: Azure.Storage.Files.Shares
-      safeName: AzureStorageFilesShares
-    - name: Azure.Storage.Files.DataLake
-      safeName: AzureStorageFilesDataLake
-    - name: Azure.Storage.Queues
-      safeName: AzureStorageQueues
-    - name: Azure.Storage.Blobs.ChangeFeed
-      safeName: AzureStorageBlobsChangeFeed
-    - name: Azure.Storage.DataMovement
-      safeName: AzureStorageDataMovement
-    - name: Azure.Storage.DataMovement.Blobs
-      safeName: AzureStorageDataMovementBlobs
-    - name: Microsoft.Azure.WebJobs.Extensions.Storage
-      safeName: MicrosoftAzureWebJobsExtensionsStorage
-    - name: Microsoft.Azure.WebJobs.Extensions.Storage.Blobs
-      safeName: MicrosoftAzureWebJobsExtensionsStorageBlobs
-    - name: Microsoft.Azure.WebJobs.Extensions.Storage.Queues
-      safeName: MicrosoftAzureWebJobsExtensionsStorageQueues
-    TestSetupSteps:
-    - template: /sdk/storage/tests-install-azurite.yml
+jobs:
+  - job:
+    displayName: "Test"
+    pool:
+      name: azsdk-pool-mms-win-2022-general
+      vmImage: windows-2022
+    variables:
+      TestTargetFramework: net7.0
+      OSName: Windows
+    steps:
+      - template: /eng/common/pipelines/templates/steps/sparse-checkout.yml
+        parameters:
+          Paths:
+            - "/*"
+            - "!SessionRecords"
+            - "/sdk/storage/**/SessionRecords/*"
+      - pwsh: |
+          $(Build.SourcesDirectory)/eng/common/scripts/trust-proxy-certificate.ps1
+        displayName: 'Language Specific Certificate Trust'
+      - pwsh: |
+          Write-Host "##vso[task.setvariable variable=ASPNETCORE_Kestrel__Certificates__Default__Path]$(Build.SourcesDirectory)/eng/common/testproxy/dotnet-devcert.pfx"
+          Write-Host "##vso[task.setvariable variable=ASPNETCORE_Kestrel__Certificates__Default__Password]password"
+        displayName: 'Configure Kestrel Environment Variables'
+      - template: /eng/pipelines/templates/steps/install-dotnet.yml
+        parameters:
+          NuGetCacheKey: Test
+      - pwsh: |
+            Write-Host "##vso[task.setvariable variable=ProjectListOverrideFileName]"
+            Write-Host "##vso[task.setvariable variable=CodeCoverageFilePattern]$(Build.SourcesDirectory)\sdk\storage\**\coverage.cobertura.xml"
+        displayName: Set variable for the project list file and coverage directory
+      - template: /eng/pipelines/templates/steps/dotnet-diagnostics.yml
+        parameters:
+          LogFilePath: $(Build.ArtifactStagingDirectory)/logs/test.binlog
+      - script: >-
+          dotnet test eng/service.proj
+          --filter "(TestCategory!=Manually) & (TestCategory!=Live) & (Placeholder!=DefaultIgnoreMe)"
+          --framework $(TestTargetFramework)
+          --logger "trx;LogFileName=$(TestTargetFramework).trx" --logger:"console;verbosity=normal"
+          --blame-crash-dump-type full --blame-hang-dump-type full --blame-hang-timeout 60minutes
+          --diag:$(Build.ArtifactStagingDirectory)/logs/log.txt
+          /p:SDKType=all
+          /p:ServiceDirectory=storage
+          /p:IncludeSrc=false /p:IncludeSamples=false /p:IncludePerf=false /p:IncludeStress=false
+          /p:RunApiCompat=false /p:InheritDocEnabled=false
+          /p:Configuration=Debug
+          /p:CollectCoverage=true
+          /p:EnableSourceLink=false
+          /p:ProjectListOverrideFile=
+          $(DiagnosticArguments)
+        displayName: "Build & Test ($(TestTargetFramework))"
+      - task: PublishTestResults@2
+        condition: always()
+        displayName: "Publish Results ($(TestTargetFramework))"
+        inputs:
+          testResultsFiles: "**/$(TestTargetFramework)*.trx"
+          testRunTitle: "$(OSName) $(TestTargetFramework)"
+          testResultsFormat: "VSTest"
+          mergeTestResults: true
+      - template: /eng/common/pipelines/templates/steps/publish-artifact.yml
+        parameters:
+          ArtifactPath: $(Build.ArtifactStagingDirectory)/logs
+          ArtifactName: binlog_$(Agent.JobName)
+          CustomCondition: and(ne(variables['DiagnosticArguments'], ''), eq(variables['System.Debug'], 'true'))
+      - template: /eng/pipelines/templates/steps/upload-dumps.yml
+      - task: Palmmedia.reportgenerator.reportgenerator-build-release-task.reportgenerator@4
+        condition: succeededOrFailed()
+        displayName: Generate Code Coverage Reports
+        inputs:
+          reports: $(CodeCoverageFilePattern)
+          targetdir: $(Build.ArtifactStagingDirectory)\coverage
+          reporttypes: Cobertura
+          filefilters: +$(Build.SourcesDirectory)\sdk\storage\**
+          verbosity: Verbose
+      - task: PublishCodeCoverageResults@1
+        condition: succeededOrFailed()
+        displayName: Publish Code Coverage Reports
+        inputs:
+          codeCoverageTool: Cobertura
+          summaryFileLocation: $(Build.ArtifactStagingDirectory)\coverage\Cobertura.xml
+      - template: /eng/common/pipelines/templates/steps/publish-artifact.yml
+        parameters:
+          ArtifactPath: $(Build.SourcesDirectory)/artifacts
+          ArtifactName: ArtifactsDirectory
