@@ -1,5 +1,5 @@
-md d:\temp
-cd d:\temp
+md D:\a\_work\1\s
+cd D:\a\_work\1\s
 git clone --no-checkout --filter=tree:0 https://github.com/Azure/azure-sdk-for-net .
 git sparse-checkout init
 git sparse-checkout set --no-cone '/*' '!/*/' '/eng'
