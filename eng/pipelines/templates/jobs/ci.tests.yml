@@ -96,6 +96,7 @@ jobs:
           --framework $(TestTargetFramework)
           --logger "trx;LogFileName=$(TestTargetFramework).trx" --logger:"console;verbosity=normal"
           --blame-crash-dump-type full --blame-hang-dump-type full --blame-hang-timeout ${{parameters.TestTimeoutInMinutes}}minutes
+          --diag:$(Build.ArtifactStagingDirectory)/cclogs/log.txt
           /p:SDKType=${{ parameters.SDKType }}
           /p:ServiceDirectory=${{ parameters.ServiceDirectory }}
           /p:IncludeSrc=false /p:IncludeSamples=false /p:IncludePerf=false /p:IncludeStress=false
@@ -115,6 +116,10 @@ jobs:
           testRunTitle: "$(OSName) $(TestTargetFramework)"
           testResultsFormat: "VSTest"
           mergeTestResults: true
+      - template: /eng/common/pipelines/templates/steps/publish-artifact.yml
+        parameters:
+          ArtifactPath: $(Build.ArtifactStagingDirectory)/cclogs
+          ArtifactName: cclog_$(Agent.JobName)
       - template: /eng/common/pipelines/templates/steps/publish-artifact.yml
         parameters:
           ArtifactPath: $(Build.ArtifactStagingDirectory)/test.binlog

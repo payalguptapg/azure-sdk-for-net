@@ -92,7 +92,7 @@
     This needs to be available in all projects.
   -->
   <ItemGroup>
-    <SourceRoot Include="$([MSBuild]::EnsureTrailingSlash($(NuGetPackageRoot)))" />
+    <SourceRoot Include="$([MSBuild]::EnsureTrailingSlash($(NuGetPackageRoot)))" Condition="'$(DeterministicSourcePaths)' == 'true' and $([MSBuild]::VersionLessThan('$(TargetFrameworkVersion)', '3.1'))"/>
   </ItemGroup>
 
   <Target Name="CoverletGetPathMap"
