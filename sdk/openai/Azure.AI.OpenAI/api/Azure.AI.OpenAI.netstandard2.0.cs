@@ -1,5 +1,15 @@
 namespace Azure.AI.OpenAI
 {
+    public static partial class AzureOpenAIModelFactory
+    {
+        public static Azure.AI.OpenAI.Choice Choice(string text = null, int? index = default(int?), Azure.AI.OpenAI.CompletionsLogProbability logprobs = null, string finishReason = null) { throw null; }
+        public static Azure.AI.OpenAI.Completions Completions(string id = null, Azure.AI.OpenAI.CompletionsObject @object = default(Azure.AI.OpenAI.CompletionsObject), int? created = default(int?), string model = null, System.Collections.Generic.IEnumerable<Azure.AI.OpenAI.Choice> choices = null, Azure.AI.OpenAI.CompletionsUsage usage = null) { throw null; }
+        public static Azure.AI.OpenAI.CompletionsLogProbability CompletionsLogProbability(System.Collections.Generic.IEnumerable<string> tokens = null, System.Collections.Generic.IEnumerable<float?> tokenLogProbability = null, System.Collections.Generic.IEnumerable<System.Collections.Generic.IDictionary<string, float>> topLogProbability = null, System.Collections.Generic.IEnumerable<int> textOffset = null) { throw null; }
+        public static Azure.AI.OpenAI.CompletionsUsage CompletionsUsage(int completionTokens = 0, int promptTokens = 0, int totalTokens = 0) { throw null; }
+        public static Azure.AI.OpenAI.EmbeddingItem EmbeddingItem(Azure.AI.OpenAI.EmbeddingItemObject @object = default(Azure.AI.OpenAI.EmbeddingItemObject), System.Collections.Generic.IEnumerable<float> embedding = null, int index = 0) { throw null; }
+        public static Azure.AI.OpenAI.Embeddings Embeddings(Azure.AI.OpenAI.EmbeddingsObject @object = default(Azure.AI.OpenAI.EmbeddingsObject), System.Collections.Generic.IEnumerable<Azure.AI.OpenAI.EmbeddingItem> data = null, string model = null, Azure.AI.OpenAI.EmbeddingsUsage usage = null) { throw null; }
+        public static Azure.AI.OpenAI.EmbeddingsUsage EmbeddingsUsage(int promptTokens = 0, int totalTokens = 0) { throw null; }
+    }
     public partial class ChatChoice
     {
         internal ChatChoice() { }
